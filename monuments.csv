@@ -1,0 +1,32 @@
+name,category,lat,lon,visit_minutes,entry_fee_try,closed_day,side
+Hagia Sophia,mosque,41.00858,28.98017,60,1400,,EU
+Blue Mosque (Sultan Ahmed),mosque,41.00539,28.97677,40,0,,EU
+Topkapi Palace,palace,41.01152,28.98338,180,2400,Tuesday,EU
+Basilica Cistern,museum,41.00840,28.97790,45,1300,,EU
+Hippodrome (Sultanahmet Square),square,41.00620,28.97520,30,0,,EU
+Istanbul Archaeology Museums,museum,41.01170,28.98130,120,850,,EU
+Museum of Turkish and Islamic Arts,museum,41.00630,28.97470,75,900,,EU
+Gulhane Park,park,41.01330,28.98130,45,0,,EU
+Grand Bazaar,bazaar,41.01070,28.96800,90,0,Sunday,EU
+Spice Bazaar,bazaar,41.01650,28.97050,45,0,,EU
+Suleymaniye Mosque,mosque,41.01610,28.96400,45,0,,EU
+Rustem Pasha Mosque,mosque,41.01750,28.96930,20,0,,EU
+Theodosius Cistern,museum,41.00810,28.97350,30,600,,EU
+Galata Bridge,viewpoint,41.01990,28.97330,30,0,,EU
+Galata Tower,viewpoint,41.02560,28.97420,45,1650,,EU
+Istiklal Avenue,street,41.03380,28.97770,90,0,,EU
+Taksim Square,square,41.03700,28.98500,20,0,,EU
+Pera Museum,museum,41.03190,28.97500,75,500,Monday,EU
+Istanbul Modern,museum,41.02660,28.98340,90,1000,Monday,EU
+Dolmabahce Palace,palace,41.03910,29.00000,120,1800,Monday,EU
+Ortakoy Mosque,mosque,41.04730,29.02700,30,0,,EU
+Rumeli Fortress,fortress,41.08470,29.05680,60,600,Monday,EU
+Chora (Kariye) Mosque,mosque,41.03120,28.93900,45,1100,,EU
+Balat and Fener streets,neighbourhood,41.02950,28.94850,120,0,,EU
+Pierre Loti Hill,viewpoint,41.05380,28.93360,45,0,,EU
+Miniaturk,museum,41.06150,28.94830,90,900,,EU
+Maiden's Tower,landmark,41.02110,29.00410,75,1350,,ASIA
+Beylerbeyi Palace,palace,41.04260,29.04020,75,1200,Monday,ASIA
+Camlica Hill,viewpoint,41.02720,29.06870,45,0,,ASIA
+Kadikoy Market and Moda,neighbourhood,40.99060,29.02560,120,0,,ASIA
+Buyukada (Princes' Islands),island,40.87580,29.12860,300,0,,ASIA

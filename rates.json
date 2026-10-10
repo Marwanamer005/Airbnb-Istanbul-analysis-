@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-09",
+  "source": "TCMB indicative rates, bulletin 2026/191, Forex Buying",
+  "note": "Airbnb snapshot is 2026-09-25; swap in that day's TCMB rates if found",
+  "TRY_per": {
+    "USD": 49.1274,
+    "EUR": 55.1112,
+    "GBP": 64.9046
+  }
+}
