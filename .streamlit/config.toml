@@ -1,0 +1,41 @@
+[server]
+# serves app/static/planner.html, the map page built from the design
+enableStaticServing = true
+
+[theme]
+font = "Figtree:https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap"
+headingFont = "'Grenze Gotisch':https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;600&display=swap"
+codeFont = "'IBM Plex Mono':https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
+headingFontWeights = [500, 500, 500, 500, 500, 500]
+baseRadius = "medium"
+
+# Night's palette: Copper #b36633, Martinique #323659, Kashmir Blue #5474a1, Redwood #5b1f11, Gold Sand #e7ba80
+[theme.light]
+primaryColor = "#a55a2b"
+backgroundColor = "#fbf5ec"
+secondaryBackgroundColor = "#f3e6d3"
+textColor = "#272a46"
+linkColor = "#43608f"
+borderColor = "#e3d3bc"
+redColor = "#5b1f11"
+blueColor = "#5474a1"
+orangeColor = "#b36633"
+chartCategoricalColors = ["#5474a1", "#b36633", "#323659", "#c08a4a", "#5b1f11", "#8f9c8a"]
+
+[theme.dark]
+primaryColor = "#e19a63"
+backgroundColor = "#1d1f36"
+secondaryBackgroundColor = "#25263d"
+textColor = "#f3e7d4"
+linkColor = "#93abd6"
+borderColor = "#3a3b57"
+redColor = "#d9826b"
+blueColor = "#93abd6"
+orangeColor = "#e19a63"
+chartCategoricalColors = ["#93abd6", "#e19a63", "#e7ba80", "#c9b8e8", "#d9826b", "#a9b6a3"]
+
+[theme.light.sidebar]
+backgroundColor = "#f3e6d3"
+
+[theme.dark.sidebar]
+backgroundColor = "#25263d"

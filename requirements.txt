@@ -9,4 +9,4 @@ matplotlib
 seaborn
 joblib
 jupyter
-streamlit
+streamlit>=1.60
