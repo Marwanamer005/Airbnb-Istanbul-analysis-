@@ -1,0 +1,19 @@
+# raw listings: too big, use listings.csv.gz
+data/raw/listings.csv
+listings.csv
+
+# editor / OS
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# old pip freeze (use requirements.txt)
+requermints.txt
