@@ -1,5 +1,6 @@
 """The planner: the full-screen map from the design, filled with the real listings and model outputs."""
 import re
+from urllib.parse import urlparse
 
 import streamlit as st
 
@@ -16,7 +17,11 @@ if "planner_src" not in st.session_state:
     # A shared trip link is the app address with ?trip=<code>; the planner reads the code from its own address.
     trip = st.query_params.get("trip", "")
     hash_part = f"#trip={trip}" if re.fullmatch(r"[A-Za-z0-9_-]{8,2000}", trip) else ""
-    st.session_state.planner_src = f"/app/static/planner.html?v={version}{hash_part}"
+    # On Streamlit Community Cloud the app itself lives under /~/+/ (the page around it is Streamlit's own),
+    # so the static files are served from there too.
+    path = urlparse(st.context.url or "").path
+    base = path[:path.index("/~/+/") + 5] if "/~/+/" in path else "/"
+    st.session_state.planner_src = f"{base}app/static/planner.html?v={version}{hash_part}"
 
 # ---------- the bridge between the planner page and Python ----------
 # The planner (an iframe on the same site) posts messages to this page: sign in / sign up, "hello" when it loads,

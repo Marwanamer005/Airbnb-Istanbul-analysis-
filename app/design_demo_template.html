@@ -2295,7 +2295,7 @@ function loadCode(code){
 }
 // a link that opens the planner page with this trip (falls back to the bare code outside the app)
 function tripLink(code){
-  try { if (REAL && window.parent !== window) { const p = window.parent.location; return `${p.origin}${p.pathname}?trip=${code}`; } } catch (e) {}
+  try { if (REAL && window.parent !== window) { const p = window.parent.location; return `${p.origin}${p.pathname.replace(/\/~\/\+\/?/, "/")}?trip=${code}`; } } catch (e) {}
   return null;
 }
 function shareTrip(){
