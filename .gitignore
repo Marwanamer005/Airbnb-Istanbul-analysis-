@@ -15,5 +15,10 @@ __pycache__/
 .venv/
 venv/
 
-# old pip freeze (use requirements.txt)
-requermints.txt
+
+# visitor count kept locally by the app
+data/usage.sqlite
+
+# app secrets (admin password, sign-in key) and the local sign-in key: never on GitHub
+.streamlit/secrets.toml
+data/.auth_secret

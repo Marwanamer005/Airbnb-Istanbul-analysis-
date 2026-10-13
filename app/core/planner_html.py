@@ -14,7 +14,7 @@ import urllib.request
 import pandas as pd
 import streamlit as st
 
-from core.data import APP, PLANNER_DATA, load_listings, load_rates, price_scores
+from core.data import APP, PLANNER_DATA, PROCESSED, load_listings, load_rates, price_scores
 
 TEMPLATE = APP / "design_demo_template.html"
 OUT = APP / "static" / "planner.html"
@@ -46,10 +46,16 @@ PHOTO_SEARCH = {
 
 def listings_payload(df: pd.DataFrame) -> dict:
     """Column arrays in the short field names the planner reads (see `const L = LIST.c` in the template)."""
+    monthly_path = PROCESSED / "listings_monthly.parquet"   # notebook 06: fair prices for monthly rentals
+    if monthly_path.exists():
+        df = df.merge(pd.read_parquet(monthly_path), on="id", how="left")
     keep = df["neighbourhood_cleansed"].isin(DISTRICTS) & df["fair_price"].notna() & df["stay_type"].isin(STAY_TYPES)
-    # leave out listings that look inactive: no booking in the last year and a low reliability score
-    keep &= (df["active_ltm"] == 1) | (df["reliability"] >= 0.5)
-    d = df[keep].reset_index(drop=True)
+    # leave out listings that look inactive: no booking in the last year and a low reliability score. Monthly
+    # rentals are rarely booked through Airbnb, so for them a review in the last year or a fair score is enough.
+    active = (df["active_ltm"] == 1) | (df["reliability"] >= 0.5)
+    if "fair_price_m" in df:
+        active |= df["fair_price_m"].notna() & ((df["reliability"] >= 0.2) | (df["number_of_reviews_ltm"] > 0))
+    d = df[keep & active].reset_index(drop=True)
     segs = sorted(d["segment_name"].dropna().unique())
     num = lambda col, nd=0: d[col].fillna(0).round(nd).tolist() if nd else d[col].fillna(0).round().astype(int).tolist()
     c = {
@@ -66,6 +72,8 @@ def listings_payload(df: pd.DataFrame) -> dict:
         "sg": d["segment_name"].map({s: k for k, s in enumerate(segs)}).fillna(0).astype(int).tolist(),
         "pu": d["picture_url"].fillna("").tolist(),
     }
+    if "fair_price_m" in d:   # 0 for listings that aren't monthly rentals
+        c["fm"], c["gm"] = num("fair_price_m"), num("price_gap_m", 3)
     if "similar_ids" in d:   # notebook 05: up to 5 similar stays per listing, as positions in these arrays
         pos = {i: k for k, i in enumerate(d["id"])}
         c["si"] = [[pos[j] for j in ids if j in pos][:5] for ids in d["similar_ids"]]
@@ -186,7 +194,9 @@ def fetch_sight_photos(sights: list) -> list:
 
 @st.cache_data(show_spinner="Preparing the map and sight photos...")
 def build_planner() -> str:
-    """Writes the planner page once per server start and returns a version string for cache busting."""
+    """Writes the planner page once per server start and returns a version string for cache busting.
+    (What changes while the app runs, like the weights learned from picks, reaches the page through the
+    bridge in app_pages/plan.py instead.)"""
     html = TEMPLATE.read_text(encoding="utf-8")
     for ph, name in STATIC_FILES.items():
         if ph == "__MON__":
@@ -203,7 +213,7 @@ def build_planner() -> str:
     html = html.replace("From ${COOC.n.toLocaleString(\"en-US\")} sample trips in this preview. The app learns from real saved trips.",
                         "Based on ${COOC.n.toLocaleString(\"en-US\")} sample trips built from how popular each sight is.")
     page = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            '<meta name="viewport" content="width=device-width,initial-scale=1"><title>Smart Istanbul Trip Planner</title>'
+            '<meta name="viewport" content="width=device-width,initial-scale=1"><title>Kervan · Istanbul trip planner</title>'
             '</head><body>' + html + "</body></html>")
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(page, encoding="utf-8")

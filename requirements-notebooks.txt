@@ -1,0 +1,9 @@
+# Everything above plus what the five notebooks need (the neural network, SHAP, charts, Jupyter).
+# Install with:  pip install -r requirements-notebooks.txt
+-r requirements.txt
+tensorflow==2.21.0
+keras==3.15.1
+shap==0.51.0
+matplotlib==3.11.2
+seaborn==0.13.2
+jupyter==1.1.1

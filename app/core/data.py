@@ -24,6 +24,24 @@ def load_listings() -> pd.DataFrame:
     return pd.read_parquet(PROCESSED / "listings_priced.parquet")
 
 
+@st.cache_data(show_spinner="Loading monthly stays...")
+def load_monthly():
+    """Monthly listings (min stay 28+ nights) with the fair price from their own model (notebook 06), or None before 06 has run."""
+    path = PROCESSED / "listings_monthly.parquet"
+    if not path.exists():
+        return None
+    df = load_listings()
+    m = df[df["is_monthly"] == 1].drop(columns=["fair_price", "price_gap"])
+    return m.merge(pd.read_parquet(path), on="id").rename(columns={"fair_price_m": "fair_price", "price_gap_m": "price_gap"})
+
+
+@st.cache_data
+def monthly_scores():
+    """Typical error and R² of the monthly price model (notebook 06), or None."""
+    path = MODELS / "monthly_scores.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
 @st.cache_resource(show_spinner="Loading the price model...")
 def load_price_model():
     import joblib

@@ -1,12 +1,13 @@
-pandas>=2.0
-numpy
-pyarrow
-scikit-learn>=1.3
-xgboost>=2.0
-tensorflow
-shap
-matplotlib
-seaborn
-joblib
-jupyter
-streamlit>=1.60
+# What the Streamlit app needs (this is what Streamlit Community Cloud installs).
+# Versions match the laptop the models were trained on, so the saved models load exactly. Use Python 3.11.
+streamlit==1.65.0
+pandas==3.0.6
+numpy==2.4.6
+pyarrow==25.0.1
+scikit-learn==1.9.1
+xgboost==3.2.0
+joblib==1.6.0
+altair==6.3.0
+pydeck==0.9.3
+# only used when the visitor count is kept in a Postgres database (the usage_db_url secret)
+psycopg2-binary==2.9.10

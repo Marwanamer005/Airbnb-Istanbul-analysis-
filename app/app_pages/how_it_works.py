@@ -5,8 +5,11 @@ import pandas as pd
 import streamlit as st
 
 from core.data import (FIGS, RELIABILITY_AUC, deal_label, fair_price_parts, load_listings, load_price_model,
-                       load_price_stack, money, price_scores)
+                       load_price_stack, monthly_scores, money, price_scores)
+from core.auth import account_count
+from core.learning import FACTORS, HAND, feedback_stats, learned_weights
 from core.ui import currency_picker
+from core.usage import visit_stats
 
 df = load_listings()
 PRICE_MAPE, PRICE_R2, PRICE_NAME = price_scores()
@@ -132,8 +135,78 @@ st.write(
     "Each stay also has a *Similar stays* button: the stays our price network describes most like it."
 )
 
+# ---------- learning from testers ----------
+st.header("What testers choose")
+lw, fb = learned_weights(), feedback_stats()
+st.write(
+    "When someone plans their days with one of the 5 stays, the planner stores (anonymously) the six factor scores of "
+    "all 5 stays and which one they took. Each stay also has a *Good pick for you?* question. From the picks, a "
+    "logistic regression on pairs (chosen stay minus each stay passed over) learns how much each factor really "
+    f"matters to people. Once there are {lw['min']} picks, the planner's *Balanced* weights start moving towards "
+    "the learned ones, a little more with every pick."
+)
+with st.container(horizontal=True):
+    st.metric("Trips planned", f"{lw['n']:,}", border=True, help="Times someone went on to plan their days with one of the 5 stays")
+    st.metric("Chose the top stay", "–" if lw["top1"] is None else f"{lw['top1']:.0%}", border=True,
+              help="Share of those picks that were stay #1, the one marked Recommended")
+    st.metric("Said the stay was a good pick", "–" if fb["yes"] is None else f"{fb['yes']:.0%}", border=True,
+              help=f"Out of {fb['n']:,} answers to \"Good pick for you?\" (each person's last answer per stay)")
+    st.metric("Top stay a good pick", "–" if fb["yes_top"] is None else f"{fb['yes_top']:.0%}", border=True,
+              help=f"Answers about stay #1 only ({fb['n_top']:,})")
+if lw["ready"]:
+    w = pd.DataFrame({"Factor": FACTORS * 3,
+                      "Weight": HAND["Balanced"] + lw["learned"] + lw["balanced"],
+                      "Set": ["Hand-set"] * 6 + ["Learned from picks"] * 6 + ["Used now"] * 6})
+    order = ["Hand-set", "Learned from picks", "Used now"]
+    wbars = alt.Chart(w).mark_bar(cornerRadiusEnd=3, height=9).encode(
+        x=alt.X("Weight:Q", title="Weight (out of 100)"),
+        y=alt.Y("Factor:N", sort=FACTORS, title=None),
+        yOffset=alt.YOffset("Set:N", sort=order),
+        color=alt.Color("Set:N", sort=order, scale=alt.Scale(range=["#5474a1", "#b36633", "#323659"]),
+                        legend=alt.Legend(title=None, orient="top")),
+        tooltip=["Factor", "Set", alt.Tooltip("Weight:Q", format=".0f")],
+    ).properties(height=320)
+    st.altair_chart(wbars, alt="Bar chart of the hand-set, learned and current weight of each ranking factor")
+    st.caption(f"Used now = {1 - lw['alpha']:.0%} hand-set + {lw['alpha']:.0%} learned. People often take the first stay "
+               "they see, so the learned weights lean towards the ranking they were shown; that is why they are blended in slowly.")
+else:
+    st.caption(f"{lw['n']} of the {lw['min']} picks needed before the weights are learned. Until then the planner uses the hand-set weights.")
+
+# ---------- monthly stays ----------
+ms = monthly_scores()
+if ms:
+    st.header("Monthly stays")
+    st.write(
+        f"About a third of the listings ({ms['n']:,}) only take stays of 28 nights or more. They price differently, so "
+        f"they have their own model (notebook 06): its typical error is {ms['MedianAPE_%']:.0f}% (R² {ms['R2_log']:.2f}), "
+        f"against {ms['normal_model_MedianAPE_%']:.0f}% when the normal-stay model was used for them. They are harder to "
+        "price: fewer of them, few reviews, and many are rarely booked. Explore shows them under *A month or more*."
+    )
+
+# ---------- who uses it ----------
+st.header("People using the planner")
+stats = visit_stats()
+if stats is None:
+    st.caption("The visitor count isn't available right now.")
+else:
+    st.caption("Each device is counted once a day. Nothing personal is stored, only a scrambled id."
+               + ("" if stats["lasting"] else " This copy keeps the count in a local file, so it restarts when the server does."))
+    with st.container(horizontal=True):
+        st.metric("Visitors so far", f"{stats['total']:,}", border=True)
+        st.metric("Today", f"{stats['today']:,}", border=True)
+        st.metric("Last 7 days", f"{stats['week']:,}", border=True, help="Visits per day added up over the last week")
+        accounts = account_count()
+        st.metric("Accounts", "–" if accounts is None else f"{accounts:,}", border=True, help="People who created an account")
+    visits = alt.Chart(stats["per_day"]).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3, width=alt.RelativeBandSize(0.7)).encode(
+        x=alt.X("yearmonthdate(day):T", title=None, axis=alt.Axis(format="%d %b", labelAngle=0, tickCount=8, grid=False)),
+        y=alt.Y("visitors:Q", title="Visitors", axis=alt.Axis(tickMinStep=1)),
+        tooltip=[alt.Tooltip("day:T", format="%a %d %b", title="Day"), alt.Tooltip("visitors:Q", title="Visitors")],
+    ).properties(height=220)
+    st.altair_chart(visits, alt="Bar chart of visitors per day over the last 30 days")
+
 # ---------- notebook figures ----------
 FIG_LIST = [("stacking_comparison.png", "XGBoost, the neural network and the two stacked (notebook 05)"),
+            ("monthly_model.png", "Monthly stays: their own price model (notebook 06)"),
             ("mlp_listing_embeddings.png", "What the network learned about each stay (notebook 05)"),
             ("predicted_vs_actual.png", "Price model: predicted vs actual (notebook 02)"),
             ("segments.png", "The six kinds of stay (notebook 03)"),

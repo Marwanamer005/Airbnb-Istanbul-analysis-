@@ -1,0 +1,7 @@
+{
+ "model": "XGBoost monthly (smaller)",
+ "MedianAPE_%": 33.88004742973835,
+ "R2_log": 0.49906885350980457,
+ "normal_model_MedianAPE_%": 63.52014062819269,
+ "n": 7754
+}

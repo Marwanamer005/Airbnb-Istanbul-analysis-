@@ -2,15 +2,30 @@
 import altair as alt
 import streamlit as st
 
-from core.data import deal_label, load_listings
+from core.data import deal_label, load_listings, load_monthly, monthly_scores
 from core.ui import currency_picker
-
-df = load_listings().dropna(subset=["fair_price"])
 
 st.title("Explore stays")
 st.write("Every Airbnb listing in Istanbul with the price our model thinks is fair. Use it to see where the good deals are.")
 
 cur, rates = currency_picker()
+length = st.segmented_control("Stay length", ["A short trip", "A month or more"], default="A short trip",
+                              required=True, key="stay_length")
+monthly = length == "A month or more"
+
+if monthly:
+    # monthly rentals price differently, so they have their own fair-price model (notebook 06)
+    df = load_monthly()
+    if df is None:
+        st.info("Monthly stays get their fair prices from notebook 06. Run it, then reload this page.", title="Not ready yet")
+        st.stop()
+    sc = monthly_scores()
+    st.caption("Stays with a minimum of 28 nights or more, priced by a model trained only on monthly stays"
+               + (f" (typical error {sc['MedianAPE_%']:.0f}%, so only gaps over 10% count as deals here)." if sc else "."))
+    df = df.dropna(subset=["fair_price"])
+else:
+    df = load_listings().dropna(subset=["fair_price"])
+    df = df[df["is_monthly"] == 0]   # monthly rentals are priced by their own model: see "A month or more"
 
 with st.container(horizontal=True, vertical_alignment="bottom"):
     hoods = st.multiselect("Neighbourhoods", sorted(df["neighbourhood_cleansed"].unique()),
@@ -24,10 +39,12 @@ if hoods:
     f = f[f["neighbourhood_cleansed"].isin(hoods)]
 if kinds:
     f = f[f["segment_name"].isin(kinds)]
-f = f[(f["active_ltm"] == 1) | (f["reliability"] >= 0.5)]   # hide listings that look inactive
+# hide listings that look inactive (monthly rentals are rarely booked through Airbnb, so for them a review in the
+# last year or a fair activity score is enough)
+f = f[(f["active_ltm"] == 1) | (f["reliability"] >= (0.2 if monthly else 0.5)) | (monthly & (f["number_of_reviews_ltm"] > 0))]
 if deals_only:
-    # over 60% below fair is usually a pricing quirk (a single dorm bed, a monthly rate), not a real deal
-    f = f[f["price_gap"].between(0.03, 0.6)]
+    # over 60% below fair is usually a pricing quirk (a single dorm bed, a stale price), not a real deal
+    f = f[f["price_gap"].between(0.10 if monthly else 0.03, 0.6)]
 
 if f.empty:
     st.info("No stays match these filters. Try more neighbourhoods or fewer guests.")
@@ -35,8 +52,10 @@ if f.empty:
 
 with st.container(horizontal=True):
     st.metric("Stays", f"{len(f):,}", border=True)
-    st.metric("Median price per night", f"{f['price'].median() / rates[cur]:,.0f} {cur}", border=True)
-    st.metric("Median saving vs fair price", f"{f['price_gap'].median():.0%}", border=True)
+    st.metric("Median price per night", f"{f['price'].median() / rates[cur]:,.0f} {cur}", border=True,
+              help="Monthly stays list a nightly price too; a month costs about 30 times this." if monthly else None)
+    gap = f["price_gap"].median()
+    st.metric("Median price vs fair price", f"{abs(gap):.0%} {'below' if gap >= 0 else 'above'}", border=True)
 
 st.subheader("Typical nightly price by neighbourhood")
 by = (f.groupby("neighbourhood_cleansed").agg(stays=("id", "size"), price=("price", "median"), fair=("fair_price", "median"))
