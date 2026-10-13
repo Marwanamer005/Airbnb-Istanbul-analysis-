@@ -40,6 +40,20 @@ export default function (component) {
     b.sent.add(msg.rid);
     frame.contentWindow.postMessage({kervanReply: msg}, window.location.origin);
   }
+  // On Streamlit Community Cloud this page lives under /~/+/; a planner address outside it loads Streamlit's own
+  // loading screen instead of the planner, so point the frame inside it (checks for a few seconds after load).
+  const pre = location.pathname.includes("/~/+/") ? location.pathname.slice(0, location.pathname.indexOf("/~/+/") + 5) : null;
+  if (pre && !b.fixTimer) {
+    let tries = 0;
+    b.fixTimer = setInterval(() => {
+      const f = document.querySelector('iframe[title="Trip planner map"]');
+      if (f && f.getAttribute("src")) {
+        const u = new URL(f.getAttribute("src"), location.href);
+        if (!u.pathname.startsWith(pre)) f.src = pre + u.pathname.replace(/^\/+/, "") + u.search + u.hash;
+      }
+      if (++tries > 40) { clearInterval(b.fixTimer); b.fixTimer = null; }
+    }, 250);
+  }
   if (b.listening) return;
   b.listening = true;
   window.addEventListener("message", (e) => {
