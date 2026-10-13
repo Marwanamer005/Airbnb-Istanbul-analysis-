@@ -4,20 +4,23 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from core.data import FIGS, PRICE_MAPE, PRICE_R2, RELIABILITY_AUC, deal_label, load_listings, load_price_model, money
+from core.data import (FIGS, RELIABILITY_AUC, deal_label, fair_price_parts, load_listings, load_price_model,
+                       load_price_stack, money, price_scores)
 from core.ui import currency_picker
 
 df = load_listings()
+PRICE_MAPE, PRICE_R2, PRICE_NAME = price_scores()
+stack = load_price_stack()
 
 st.title("How it works")
 st.write(
-    "Behind the map are three models trained on Inside Airbnb's Istanbul data (snapshot of 25 Sep 2026, "
+    "Behind the map are machine-learning models trained on Inside Airbnb's Istanbul data (snapshot of 25 Sep 2026, "
     f"{len(df):,} listings). They decide which 5 stays you see and why."
 )
 
 with st.container(horizontal=True):
     st.metric("Fair-price model, typical error", f"{PRICE_MAPE:.0%}", border=True,
-              help=f"Median error on held-out listings; R² {PRICE_R2} on log price. Notebook 02.")
+              help=f"{PRICE_NAME}. Median error on held-out listings; R² {PRICE_R2} on log price. Notebooks 02 and 05.")
     st.metric("Active-listing model, AUC", f"{RELIABILITY_AUC}", border=True,
               help="How well it separates listings that were booked in the last year from dead ones. Notebook 04.")
     st.metric("Kinds of stay", df["segment_name"].nunique(), border=True,
@@ -64,7 +67,8 @@ if go:
     row["is_shared_bath"], row["is_superhost"] = int(shared), int(superhost)
     for label, col in AMENITIES.items():
         row[col] = int(label in amen)
-    fair = float(np.exp(model.predict(row[FEATURES])[0]))   # the model predicts log price
+    parts = fair_price_parts(row)   # each model predicts log price; the app converts back to lira
+    fair = float(parts["final"][0])
     lo, hi = fair * (1 - PRICE_MAPE), fair * (1 + PRICE_MAPE)
     with st.container(horizontal=True):
         st.metric("Fair price per night", money(fair, cur, rates), border=True,
@@ -76,6 +80,13 @@ if go:
                       delta=deal_label(gap), delta_color="normal" if gap > 0.03 else "inverse" if gap < -0.03 else "off")
         st.metric("Typical listed price here", money(group["price"].median(), cur, rates), border=True,
                   help=f"Median of {len(group):,} real listings of this type in {hood}, any size")
+    if "mlp" in parts:
+        a, b = stack["meta_coef"]
+        esc = lambda v: money(v, cur, rates).replace("$", "\\$")   # a bare $ would start a formula in markdown
+        st.caption(f"XGBoost says {esc(parts['xgb'][0])} and our neural network says {esc(parts['mlp'][0])}. "
+                   + (f"The stacked model combines them on the log scale ({a:.2f} × XGBoost + {b:.2f} × network), "
+                      "with weights learned in notebook 05." if stack["use_stack"]
+                      else "Notebook 05 found that combining them did not beat XGBoost alone, so the fair price is XGBoost's."))
 
 # ---------- fair vs listed ----------
 st.header("Fair price vs listed price")
@@ -114,14 +125,17 @@ st.altair_chart(bars, alt="Bar chart of the number of stays in each of the six k
 # ---------- ranking ----------
 st.header("How the 5 stays are picked")
 st.write(
-    "Every stay that fits your guests, budget and type gets a score from six things: how close it is to your sights, "
-    "how good the price is against the fair price, guest ratings, transport nearby, how sure we are it's really active, "
-    "and how well it matches your kind of trip. The weights change with the *What matters most?* choice in the planner. "
-    "The top score is marked Recommended."
+    "Every stay that fits your guests, nights, budget and stay type gets a score from six things: its price, how it "
+    "compares with the fair price, how close it is to your sights, its guest rating, how much we can trust it (reviews, "
+    "Superhost, and the active-listing model for new stays) and comfort (bedrooms, bathrooms, amenities). "
+    "The weights change with the *What matters most?* choice in the planner. The top score is marked Recommended. "
+    "Each stay also has a *Similar stays* button: the stays our price network describes most like it."
 )
 
 # ---------- notebook figures ----------
-FIG_LIST = [("predicted_vs_actual.png", "Price model: predicted vs actual (notebook 02)"),
+FIG_LIST = [("stacking_comparison.png", "XGBoost, the neural network and the two stacked (notebook 05)"),
+            ("mlp_listing_embeddings.png", "What the network learned about each stay (notebook 05)"),
+            ("predicted_vs_actual.png", "Price model: predicted vs actual (notebook 02)"),
             ("segments.png", "The six kinds of stay (notebook 03)"),
             ("shap_summary.png", "What drives the price (SHAP, notebook 02)"),
             ("reliability_roc.png", "Active-listing model ROC curve (notebook 04)")]

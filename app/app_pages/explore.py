@@ -52,13 +52,14 @@ chart = alt.Chart(by).mark_bar(cornerRadiusEnd=4, height=16).encode(
 st.altair_chart(chart, alt="Bar chart of median nightly price by neighbourhood")
 
 st.subheader("Best deals")
-st.caption("Stays with at least 3 reviews, ranked by how far below their fair price they are listed.")
+st.caption("Stays with at least 3 reviews, ranked by how far below their fair price they are listed. "
+           "Select a row to see similar stays.")
 top = f[f["number_of_reviews"] >= 3].sort_values("price_gap", ascending=False).head(200).copy()
 top["Price"] = top["price"] / rates[cur]
 top["Fair price"] = top["fair_price"] / rates[cur]
 top["Deal"] = top["price_gap"].map(deal_label)
 top["Link"] = "https://www.airbnb.com/rooms/" + top["id"].astype(str)
-st.dataframe(
+table = st.dataframe(
     top[["picture_url", "name", "neighbourhood_cleansed", "segment_name", "accommodates", "Price", "Fair price", "Deal",
          "review_scores_rating", "number_of_reviews", "reliability", "Link"]],
     hide_index=True, row_height=64, alt="Table of the 200 stays priced furthest below their fair price",
@@ -75,7 +76,37 @@ st.dataframe(
         "reliability": st.column_config.ProgressColumn("Likely active", min_value=0, max_value=1, format="percent"),
         "Link": st.column_config.LinkColumn("Airbnb", display_text="Open"),
     },
+    on_select="rerun", selection_mode="single-row",
 )
+
+picked = table.selection.rows
+if picked and "similar_ids" in df:
+    stay = top.iloc[picked[0]]
+    sim = df.set_index("id").reindex(list(stay["similar_ids"])).dropna(subset=["name"]).reset_index()
+    st.subheader(f"Stays like {stay['name']}")
+    st.caption("Found by our price neural network (notebook 05): it describes every stay with 64 numbers "
+               "(size, comfort, location, district), and these are the 5 closest to the one you picked.")
+    sim["Price"] = sim["price"] / rates[cur]
+    sim["Fair price"] = sim["fair_price"] / rates[cur]
+    sim["Deal"] = sim["price_gap"].map(deal_label)
+    sim["Link"] = "https://www.airbnb.com/rooms/" + sim["id"].astype(str)
+    st.dataframe(
+        sim[["picture_url", "name", "neighbourhood_cleansed", "segment_name", "accommodates", "Price", "Fair price",
+             "Deal", "review_scores_rating", "number_of_reviews", "Link"]],
+        hide_index=True, row_height=64, alt="Table of the 5 stays most like the selected one",
+        column_config={
+            "picture_url": st.column_config.ImageColumn("Photo", width="small"),
+            "name": st.column_config.TextColumn("Stay", width="medium"),
+            "neighbourhood_cleansed": "Neighbourhood",
+            "segment_name": "Kind",
+            "accommodates": st.column_config.NumberColumn("Guests"),
+            "Price": st.column_config.NumberColumn(f"Price ({cur})", format="%.0f"),
+            "Fair price": st.column_config.NumberColumn(f"Fair ({cur})", format="%.0f"),
+            "review_scores_rating": st.column_config.NumberColumn("Rating", format="%.2f"),
+            "number_of_reviews": st.column_config.NumberColumn("Reviews"),
+            "Link": st.column_config.LinkColumn("Airbnb", display_text="Open"),
+        },
+    )
 
 st.subheader("Where they are")
 st.map(top.rename(columns={"latitude": "lat", "longitude": "lon"})[["lat", "lon"]], color="#b36633", size=40,

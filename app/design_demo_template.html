@@ -965,8 +965,8 @@ function drawWelcome(){
     flights.forEach(f => {
       const t = reduce ? 0.7 : (T + f.off) % 1;
       const a = f.node.getPointAtLength(t * f.len), b = f.node.getPointAtLength(Math.min(f.len, t * f.len + 1));
-      const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
-      f.el.attr("transform", `translate(${a.x},${a.y}) rotate(${ang})`).attr("opacity", t < 0.06 ? t/0.06 : t > 0.94 ? (1-t)/0.06 : 1);
+      const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;   // the plane icon points left, so scale(-1,1) below turns its nose forward
+      f.el.attr("transform", `translate(${a.x},${a.y}) rotate(${ang}) scale(-1,1)`).attr("opacity", t < 0.06 ? t/0.06 : t > 0.94 ? (1-t)/0.06 : 1);
     });
     if (!reduce && !document.getElementById("welcome").hidden) wAnim = requestAnimationFrame(tick);
   };
@@ -1395,7 +1395,7 @@ function recommend(){
   order.forEach((i,k) => rank.set(i, (k+1) / order.length));
   const ws = state.w.reduce((a,b)=>a+b,0) || 1, w = state.w.map(v => v / ws);
   const g = state.guests;
-  const scored = cand.map(i => {
+  const scoreOf = i => {
     const dist = picks.reduce((a,m)=>a + hav(L.la[i],L.lo[i],m.lat,m.lon), 0) / picks.length;
     const f = [
       cand.length > 1 ? 1 - rank.get(i) : 1,
@@ -1406,7 +1406,9 @@ function recommend(){
       0.4 * clip(Math.max(L.bd[i], 0.5) / g * 2, 0, 1) + 0.2 * clip(L.ba[i] / Math.max(1, Math.ceil(g/3)), 0, 1) + 0.4 * clip(L.am[i] / 50, 0, 1),
     ];
     return {i, f, dist, score: f.reduce((a,v,k)=>a + v*w[k], 0) * 100};
-  });
+  };
+  state.fits = new Set(cand); state.scoreOf = i => { const r = scoreOf(i); r.why = explain(r, w); return r; };
+  const scored = cand.map(scoreOf);
   scored.sort((a,b) => b.score - a.score);
   const top = scored.slice(0,5);
   top.forEach(r => r.why = explain(r, w));
@@ -1703,6 +1705,27 @@ function viewStays(){
     c.checked ? state.cmp.add(k) : state.cmp.delete(k); staysFoot();
   });
   pbody.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => { selectStay(+b.dataset.plan, true); go("days"); });
+  pbody.querySelectorAll("[data-sim]").forEach(b => b.onclick = () => similarStays(+b.dataset.sim));
+}
+// Stays the price network sees as alike (nearest neighbours in its 64-number embedding, notebook 05)
+function similarStays(k){
+  const R = state.results.top, i = R[k].i, have = new Set(R.map(r => r.i));
+  const why = j => L.ac[j] < state.guests ? `takes up to ${L.ac[j]} guests` : L.pr[j] > state.budget ? "over your nightly budget"
+    : !state.types.has(L.ty[j]) ? "a stay type you didn't pick" : L.mn[j] > state.days ? `minimum ${L.mn[j]} nights` : "doesn't fit your trip";
+  const rows = L.si[i].map(j => {
+    const gap = L.gp[j], deal = gap > 0.03 ? `${Math.round(gap*100)}% below fair price` : gap < -0.03 ? `${Math.round(-gap*100)}% above fair price` : "About fair price";
+    const act = have.has(j) ? `<span class="hint">Already in your list</span>`
+      : state.fits.has(j) ? `<button class="btn small primary" type="button" data-use="${j}">Plan with this stay</button>` : `<span class="hint">Not for this trip: ${why(j)}</span>`;
+    return `<tr><td><b>${esc(L.nm[j])}</b><div class="hint">${LIST.types[L.ty[j]]} · ${LIST.dists[L.di[j]]} · up to ${L.ac[j]} guests${L.sh[j] ? " · Superhost" : ""}</div></td>
+      <td>${money(L.pr[j])}<div class="hint">${deal}</div></td>
+      <td><a class="btn small" href="https://www.airbnb.com/rooms/${L.id[j]}" target="_blank" rel="noopener">Airbnb ${ico("link",'style="width:14px;height:14px"')}</a> ${act}</td></tr>`;
+  }).join("");
+  openModal(`<div class="mhead"><h3>Stays like ${esc(L.nm[i].slice(0, 40))}</h3><button class="iconbtn" type="button" data-close aria-label="Close">${ico("x")}</button></div>
+    <table class="ctable"><tbody>${rows}</tbody></table>
+    <div class="hint">Found by our price neural network: it describes every stay with 64 numbers (size, comfort, location, district), and these are the closest ones to this stay.</div>`);
+  document.querySelectorAll("#mbox [data-use]").forEach(b => b.onclick = () => {
+    const r = state.scoreOf(+b.dataset.use); R.push(r); closeModal(); selectStay(R.length - 1, true); go("days");
+  });
 }
 function staysFoot(){
   const n = state.cmp.size;
@@ -1756,6 +1779,7 @@ function stayCard(r, k){
       <div class="acts">
         <a class="btn small" href="https://www.airbnb.com/rooms/${L.id[i]}" target="_blank" rel="noopener">${t("View on Airbnb")} ${ico("link",'style="width:14px;height:14px"')}</a>
         <button class="btn small primary" type="button" data-plan="${k}">${t("Plan my days")}</button>
+        ${L.si && L.si[i].length ? `<button class="btn small" type="button" data-sim="${k}">Similar stays</button>` : ""}
         <label class="cmp"><input type="checkbox" data-cmp="${k}" ${state.cmp.has(k) ? "checked" : ""}> Compare</label>
       </div>
     </div>
@@ -2112,10 +2136,10 @@ function startTour(force){
 function openHood(){
   openModal(`<div class="mhead"><h3>How it works</h3><button class="iconbtn" type="button" data-close aria-label="Close">${ico("x")}</button></div>
     <div class="hood" style="display:grid;gap:14px">
-      <p class="sub" style="margin:0">Behind the map are three models trained on Inside Airbnb's Istanbul data (snapshot of 25 Sep 2026, about 24,000 active listings).</p>
+      <p class="sub" style="margin:0">Behind the map are machine-learning models trained on Inside Airbnb's Istanbul data (snapshot of 25 Sep 2026, about 24,000 active listings).</p>
       <div class="tiles">
-        <div class="tile"><b>14%</b><span>typical error of the fair-price model (tuned XGBoost, R² 0.751; a Keras neural network was also tested)</span></div>
-        <div class="tile"><b>0.953</b><span>AUC of the model that predicts whether a new listing is really active</span></div>
+        <div class="tile"><b>__PRICE_ERR__</b><span>__PRICE_DESC__</span></div>
+        <div class="tile"><b>0.954</b><span>AUC of the model that predicts whether a new listing is really active</span></div>
         <div class="tile"><b>6</b><span>kinds of stay found by clustering, so similar places are compared fairly</span></div>
       </div>
       <h4>Fair price vs. listed price</h4>

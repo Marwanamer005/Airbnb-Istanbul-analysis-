@@ -14,7 +14,7 @@ import urllib.request
 import pandas as pd
 import streamlit as st
 
-from core.data import APP, PLANNER_DATA, load_listings, load_rates
+from core.data import APP, PLANNER_DATA, load_listings, load_rates, price_scores
 
 TEMPLATE = APP / "design_demo_template.html"
 OUT = APP / "static" / "planner.html"
@@ -28,6 +28,20 @@ STAY_TYPES = ["Entire home", "Hotel room", "Private room", "Serviced apt", "Host
 STATIC_FILES = {"__WORLD__": "world_small.json", "__TURKEY__": "turkey.json", "__IST__": "ist_small.json",
                 "__STATIONS__": "stations.json", "__DLABELS__": "distlabels.json", "__MON__": "mon.json",
                 "__REST__": "rest.json", "__COOC__": "cooc.json"}
+
+# Sights whose Wikipedia lead photo shows something else (a wide view, a logo, a train station) or that had
+# no photo. For these the photo comes from a Wikimedia Commons search, and the file name has to contain one of
+# the word groups, so the picture is of the sight itself. Saved under a new file name, so old picks are not reused.
+PHOTO_SEARCH = {
+    "Galata Tower": ("Galata Tower Istanbul", [["galata", "tower"], ["galata", "kulesi"]]),
+    "Pera Museum": ("Pera Museum building Istanbul", [["pera", "museum"], ["pera", "müzesi"], ["pera", "muzesi"]]),
+    "Kadikoy Market and Moda": ("Kadıköy market street", [["kadıköy", "market"], ["kadikoy", "market"],
+                                                         ["kadıköy", "çarşı"], ["moda"]]),
+    "Rustem Pasha Mosque": ("Rüstem Pasha Mosque", [["rüstem", "mosque"], ["rustem", "mosque"], ["rüstem", "camii"],
+                                                    ["rustem", "camii"]]),
+    "Theodosius Cistern": ("Theodosius Cistern Şerefiye", [["theodosius", "cistern"], ["şerefiye"], ["serefiye"]]),
+    "Pierre Loti Hill": ("Pierre Loti hill Eyüp Golden Horn view", [["pierre", "loti"]]),
+}
 
 
 def listings_payload(df: pd.DataFrame) -> dict:
@@ -52,6 +66,9 @@ def listings_payload(df: pd.DataFrame) -> dict:
         "sg": d["segment_name"].map({s: k for k, s in enumerate(segs)}).fillna(0).astype(int).tolist(),
         "pu": d["picture_url"].fillna("").tolist(),
     }
+    if "similar_ids" in d:   # notebook 05: up to 5 similar stays per listing, as positions in these arrays
+        pos = {i: k for k, i in enumerate(d["id"])}
+        c["si"] = [[pos[j] for j in ids if j in pos][:5] for ids in d["similar_ids"]]
     return {"types": STAY_TYPES, "dists": DISTRICTS, "segs": segs, "c": c}
 
 
@@ -109,6 +126,26 @@ def _candidate_urls(title: str) -> list:
     return urls
 
 
+def _commons_urls(query: str, must: list) -> list:
+    """Landscape JPEG photos from a Wikimedia Commons search whose file name names the sight, best match first."""
+    api = ("https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6"
+           f"&gsrlimit=40&gsrsearch={urllib.parse.quote(query + ' filetype:bitmap')}"
+           "&prop=imageinfo&iiprop=url|size|mime&iiurlwidth=960")
+    try:
+        pages = json.loads(_get(api, timeout=10)).get("query", {}).get("pages", {}).values()
+    except Exception:
+        return []
+    skip = ("map", "logo", "plan", "drawing", "engraving", "painting", "postcard", "1900", "19th")
+    urls = []
+    for pg in sorted(pages, key=lambda p: p.get("index", 99)):
+        ii = (pg.get("imageinfo") or [{}])[0]
+        name = pg.get("title", "").lower().replace("_", " ")
+        if (ii.get("mime") == "image/jpeg" and ii.get("width", 0) >= 1000 and ii.get("width", 0) >= ii.get("height", 1)
+                and any(all(w in name for w in group) for group in must) and not any(w in name for w in skip)):
+            urls.append(ii.get("thumburl") or ii.get("url"))
+    return urls
+
+
 def fetch_sight_photos(sights: list) -> list:
     """Saves one Wikipedia photo per sight in app/static/sights/ (only the first time) and adds its path as `ph`.
 
@@ -119,12 +156,17 @@ def fetch_sight_photos(sights: list) -> list:
     missing = []
     for m in sights:
         title = m.get("wiki") or m["n"]
-        name = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") + ".jpg"
+        search = PHOTO_SEARCH.get(m["n"])
+        name = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") + ("-v2.jpg" if search else ".jpg")
         path = SIGHT_PHOTOS / name
         if path.exists() and not _is_photo(path):
             path.unlink()                      # an earlier run saved a logo or tiny image: try again
         if not path.exists():
-            for url in _candidate_urls(title):
+            urls = _candidate_urls(title)
+            if search:   # Commons first; from the article only photos whose file name names the sight
+                names = lambda u: urllib.parse.unquote(u).lower().replace("_", " ")
+                urls = _commons_urls(*search) + [u for u in urls if any(all(w in names(u) for w in g) for g in search[1])]
+            for url in urls:
                 try:
                     path.write_bytes(_get(url))
                     if _is_photo(path):
@@ -154,6 +196,8 @@ def build_planner() -> str:
         html = html.replace(ph, (PLANNER_DATA / name).read_text(encoding="utf-8").strip())
     html = html.replace("__LIST__", json.dumps(listings_payload(load_listings()), separators=(",", ":"), ensure_ascii=False))
     html = html.replace("__REAL__", "true")
+    err, r2, name = price_scores()
+    html = html.replace("__PRICE_ERR__", f"{err:.0%}").replace("__PRICE_DESC__", f"typical error of the fair-price model ({name}, R² {r2})")
     rates, _ = load_rates()
     html = re.sub(r"const RATES = \{[^}]*\};", "const RATES = " + json.dumps(rates) + ";", html, count=1)
     html = html.replace("From ${COOC.n.toLocaleString(\"en-US\")} sample trips in this preview. The app learns from real saved trips.",
