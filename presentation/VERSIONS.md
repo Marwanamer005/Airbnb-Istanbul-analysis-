@@ -5,7 +5,53 @@ Every round of edits becomes a new file (v4, v5, ...). Older files are never cha
 
 Live deck (always the latest version): https://claude.ai/artifact/La9fgy4eHHvkx1dPxqHBF2
 
-## v9 (current): the app part and the live demo
+## v15 (current): the suggestions model and the map algorithms
+- New slide 37 "What to see next" (notebook 07): the suggestions network gets the right sight in the top 3 35.5% of the time with interests ticked, against 30.6% for counting trips and 27.0% for most popular.
+- Model line-up is now "Fourteen models, five jobs", with a Suggestions column (counting trips, neural network in use).
+- Places slide: K-Means now says the days are ordered by nearest next stop and timed over the fastest bridge or ferry.
+- "How it fits together": all seven notebooks and their files; the app reads two tables and three model files.
+- Learning slide: the fourth card is "Smarter suggestions". 50 slides, all page numbers redone.
+
+## v14: cover without the capstone line
+- The "NTI · Machine Learning Capstone" line is gone from the cover. Everything else is the same as v13.
+
+## v13: Ammar's story, the pin walks the deck
+- The example traveller is now Ammar (he/his) in the problem, answer, app tour, demo and closing slides. The app screenshots read "Hi, Ammar". (The hidden backup video still shows Sara.)
+- Cover: the outline around the names and "Istanbul" is gone.
+- Agenda: the pin takes the place of the active part's icon.
+- Scoreboard: the bars grow one at a time and the pin drops next to the tuned XGBoost.
+- Price ladder (models 1 to 5): a 0 to 35% error scale along the bottom; the pin slides to each model's error as you move through them.
+- Island: the pin walks along it, leaving a copper line behind as each part is finished.
+- Closing slide: the labels are no longer doubled, a faded Galata photo sits behind it, and the pin walks Ammar's three days while each route draws.
+- Fixed everywhere: labels inside charts and maps were printed twice in PowerPoint; now they show once.
+
+## v12: the v10 cover back, with the Kervan logo moving through the deck
+- Cover and hook are the v10 ones again, with Kervan written big where İstanbul was (İstanbul moved to the small copper word on the right) and the team names in the Presented by box.
+- Cover animation: the arch, then the Blue Mosque rises, the copper pin from the app logo drops onto the dome's finial with a little bounce, the city appears inside it, and then Kervan writes itself in letter by letter.
+- Going to the hook, the pin glides down (Morph) and stops next to "That's what Kervan fixes."
+- Agenda: a small pin stands on the active part of the wheel and moves to the next part on each slide.
+- The island at the top has the pin at its left end on every slide.
+- Live demo: the pin drops onto Maiden's Tower with "You are here".
+- Closing slide: the pin drops onto Sara's stay on her route map.
+- Kept from v11: the island, team names on the closing slide, the centred live demo.
+
+## v11: Kervan up front, team names, the island
+- Team names on the cover and the closing slide: Marwan Mohammed, Ammar Ebrahim, Ibrahim Yousry, Adham Mohammed.
+- Cover rebuilt around Kervan: the app icon and the Kervan wordmark (both taken from the app's logo files), "Your Istanbul trip planner", a one-line pitch, the names, and the Blue Mosque in the arch on the right. The hook slide ends with the app icon next to "That's what Kervan fixes."
+- The progress strip at the top is now a rounded dark "island" (like the iPhone's Dynamic Island), with a copper pill under the current part. On each part slide the island grows and shows the part's name, then shrinks back on the next slide (Morph, using real PowerPoint shapes so it reshapes instead of stretching).
+- Live demo: Maiden's Tower is now in the middle of the slide, with LIVE on its left and DEMO on its right.
+
+## v10: Kervan, final numbers, what's new in the app
+- The name: Kervan on the cover (big copper word), in every slide header and on the hook ("That's what Kervan fixes").
+- Numbers: the trust slide now says AUC 0.954 (notebook 04 rerun). The scoreboard marks tuned XGBoost as the best single model and says the app blends it with our network (notebook 05: R² 0.756 against 0.753).
+- New slide after SHAP: Month-long stays (notebook 06). Normal model 63.5% error, median baseline 43.4%, monthly XGBoost 33.9% (R² 0.50).
+- New slide before the live demo: Learning from travellers (accounts, saved picks on Supabase, the ranking that learns after 30 picks, real-trip suggestions after 20 trips).
+- App screenshots retaken from the current app (new logo, sign out, best deals). Explore stays and How it works are labelled admin only. The one-click slide now says $42 against a fair $74.
+- Lessons: "Trees beat our network, but the two blended beat both". Next step "learn ranking weights" is done, so it became "Help travellers during the trip too".
+- Closing slide: QR code and kervan.streamlit.app above the GitHub link.
+- 49 slides; page numbers redone.
+
+## v9: the app part and the live demo
 - App tour: three slides with real screenshots of Plan my trip, Explore stays and How it works; the open page grows and Morph swaps it.
 - One click traced: the five best stays screen with five numbered steps (K-Means days, XGBoost fair price, trust model, the score, places to eat and transport).
 - How it fits together: the real file tree (each notebook and the files it writes), then a second slide showing the app only loads listings_priced.parquet and price_model.joblib.
