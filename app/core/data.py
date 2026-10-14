@@ -42,6 +42,16 @@ def monthly_scores():
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
+@st.cache_data
+def suggest_scores():
+    """Top-3 hit rates of the suggestions network and of counting (notebook 07), or None."""
+    path = MODELS / "suggest_mlp.json"
+    if not path.exists():
+        return None
+    s = json.loads(path.read_text(encoding="utf-8"))
+    return {k: s[k] for k in ("hit3", "use_likes", "use_plain", "n_trips", "hidden")}
+
+
 @st.cache_resource(show_spinner="Loading the price model...")
 def load_price_model():
     import joblib

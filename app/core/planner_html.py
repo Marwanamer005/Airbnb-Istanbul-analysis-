@@ -14,7 +14,7 @@ import urllib.request
 import pandas as pd
 import streamlit as st
 
-from core.data import APP, PLANNER_DATA, PROCESSED, load_listings, load_rates, price_scores
+from core.data import APP, MODELS, PLANNER_DATA, PROCESSED, load_listings, load_rates, price_scores
 
 TEMPLATE = APP / "design_demo_template.html"
 OUT = APP / "static" / "planner.html"
@@ -206,6 +206,9 @@ def build_planner() -> str:
         html = html.replace(ph, (PLANNER_DATA / name).read_text(encoding="utf-8").strip())
     html = html.replace("__LIST__", json.dumps(listings_payload(load_listings()), separators=(",", ":"), ensure_ascii=False))
     html = html.replace("__REAL__", "true")
+    suggest = MODELS / "suggest_mlp.json"   # notebook 07; without it the planner only counts
+    if suggest.exists():
+        html = html.replace("/*__SUGGEST__*/null", suggest.read_text(encoding="utf-8").strip())
     err, r2, name = price_scores()
     html = html.replace("__PRICE_ERR__", f"{err:.0%}").replace("__PRICE_DESC__", f"typical error of the fair-price model ({name}, R² {r2})")
     rates, _ = load_rates()

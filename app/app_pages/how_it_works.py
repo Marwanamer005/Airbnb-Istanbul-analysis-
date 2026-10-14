@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from core.data import (FIGS, RELIABILITY_AUC, deal_label, fair_price_parts, load_listings, load_price_model,
-                       load_price_stack, monthly_scores, money, price_scores)
+                       load_price_stack, monthly_scores, money, price_scores, suggest_scores)
 from core.auth import account_count
 from core.learning import FACTORS, HAND, feedback_stats, learned_weights
 from core.ui import currency_picker
@@ -14,6 +14,7 @@ from core.usage import visit_stats
 df = load_listings()
 PRICE_MAPE, PRICE_R2, PRICE_NAME = price_scores()
 stack = load_price_stack()
+sugg = suggest_scores()
 
 st.title("How it works")
 st.write(
@@ -28,6 +29,11 @@ with st.container(horizontal=True):
               help="How well it separates listings that were booked in the last year from dead ones. Notebook 04.")
     st.metric("Kinds of stay", df["segment_name"].nunique(), border=True,
               help="K-means clusters, so a hostel bed is never compared with a villa. Notebook 03.")
+    if sugg:
+        st.metric("Sight suggestions, right in top 3", f"{sugg['hit3']['nn_likes']:.1%}", border=True,
+                  help=f"A small neural network guesses the sight a traveller adds next from their sights and ticked "
+                       f"interests: {sugg['hit3']['nn_likes']:.1%} of the time it's in the top 3, against "
+                       f"{sugg['hit3']['counting']:.1%} for counting which sights go together. Notebook 07.")
 
 cur, rates = currency_picker()
 
@@ -206,6 +212,7 @@ else:
 
 # ---------- notebook figures ----------
 FIG_LIST = [("stacking_comparison.png", "XGBoost, the neural network and the two stacked (notebook 05)"),
+            ("suggest_model.png", "Sight suggestions: the network against counting (notebook 07)"),
             ("monthly_model.png", "Monthly stays: their own price model (notebook 06)"),
             ("mlp_listing_embeddings.png", "What the network learned about each stay (notebook 05)"),
             ("predicted_vs_actual.png", "Price model: predicted vs actual (notebook 02)"),

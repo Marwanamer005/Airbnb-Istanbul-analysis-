@@ -106,6 +106,7 @@ def visit_stats() -> dict | None:
 
 # ---------- planner events: picks and "Good pick?" answers ----------
 MODES = ("Save money", "Balanced", "Enjoy")
+INTERESTS = ("history", "architecture", "food", "views", "sea", "art", "local")   # the planner's interest chips
 MAX_EVENTS_PER_SESSION = 300
 
 
@@ -138,10 +139,12 @@ def _clean(ev) -> dict | None:
         return None
     ids = [str(i) for i in ev.get("ids", [])][:5]
     sights = ev.get("sights") if isinstance(ev.get("sights"), list) else []
+    likes = ev.get("likes") if isinstance(ev.get("likes"), list) else []
     return {"kind": "pick", "k": k, "mode": mode, "f": rows, "ids": [i for i in ids if re.fullmatch(r"\d{1,25}", i)],
             "days": _num(ev.get("days"), 1, 7, int), "guests": _num(ev.get("guests"), 1, 16, int),
             "swapped": bool(ev.get("swapped")), "long": bool(ev.get("long")),
-            "sights": sorted({v for v in (_num(x, 0, 200, int) for x in sights[:40]) if v is not None})}
+            "sights": sorted({v for v in (_num(x, 0, 200, int) for x in sights[:40]) if v is not None}),
+            "likes": sorted({x for x in likes if x in INTERESTS})}
 
 
 def record_events(events) -> int:

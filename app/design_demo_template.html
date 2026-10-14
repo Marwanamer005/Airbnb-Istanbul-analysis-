@@ -873,6 +873,7 @@ const LIST = __LIST__;
 const REAL = __REAL__;
 const REST = __REST__;
 let COOC = __COOC__;   // replaced by real planned trips once there are enough (core/learning.py, via the bridge)
+const SUGGEST = /*__SUGGEST__*/null;   // notebook 07: neural network that ranks the sights to add (null = counting only)
 
 const RATES = {TRY:1, USD:49.1274, EUR:55.1112, GBP:64.9046};
 const SYM = {TRY:"₺", USD:"$", EUR:"€", GBP:"£"};
@@ -1753,7 +1754,7 @@ function logPick(){
   R.logged = R.logged || new Set();
   if (R.logged.has(state.sel)) return; R.logged.add(state.sel);
   report({kind: "pick", k: state.sel, mode: state.mode, days: state.days, guests: state.guests, swapped: !!R.top[state.sel].swapped,
-          sights: [...state.picked], long: state.long,
+          sights: [...state.picked], likes: [...state.likes], long: state.long,
           ids: R.top.map(r => L.id[r.i]), f: R.top.map(r => r.f.map(v => Math.round(v * 1000) / 1000))});
 }
 
@@ -1839,20 +1840,37 @@ function bindPlan(){
   pbody.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => togglePick(+b.dataset.rm));
   pbody.querySelector("#ddBtn").onclick = toggleDD;
   pbody.querySelector("#start").onchange = e => { if (e.target.value) { state.start = e.target.value; invalidate(); viewPlan(); } };
-  pbody.querySelectorAll("[data-like]").forEach(c => c.onclick = () => { const k = c.dataset.like; state.likes.has(k) ? state.likes.delete(k) : state.likes.add(k); c.setAttribute("aria-pressed", state.likes.has(k)); });
+  pbody.querySelectorAll("[data-like]").forEach(c => c.onclick = () => { const k = c.dataset.like; state.likes.has(k) ? state.likes.delete(k) : state.likes.add(k); c.setAttribute("aria-pressed", state.likes.has(k));
+    const box = pbody.querySelector(".alsoadd");   // the interests also steer the suggestions
+    if (box) { box.outerHTML = alsoAdded() || "<div></div>"; pbody.querySelectorAll("[data-also]").forEach(b => b.onclick = () => togglePick(+b.dataset.also)); }
+  });
   pbody.querySelector("#surprise").onclick = surprise;
   pbody.querySelectorAll("[data-also]").forEach(b => b.onclick = () => togglePick(+b.dataset.also));
   document.getElementById("find").onclick = () => findStays();
 }
 // "travellers like you also added": how often sights co-occur in trips (sample trips in this demo, real saved trips in the app)
+// the notebook 07 network: picked sights (1 / number picked each) + ticked interests -> a score for every sight.
+// Used only where it beat counting on test trips (with interests ticked, and/or without).
+function useNet(){
+  const S = SUGGEST;
+  return !!S && S.names.length === MON.length && (state.likes.size ? S.use_likes : S.use_plain);
+}
+function netScores(){
+  const S = SUGGEST, x = new Array(S.W1.length).fill(0);
+  state.picked.forEach(i => { x[i] = 1 / state.picked.length; });
+  state.likes.forEach(k => { const j = S.interests.indexOf(k); if (j >= 0) x[MON.length + j] = 1; });
+  const h = S.b1.map((b, u) => Math.max(0, x.reduce((a, v, i) => v ? a + v * S.W1[i][u] : a, b)));
+  return S.b2.map((b, j) => h.reduce((a, v, u) => a + v * S.W2[u][j], b));
+}
 function alsoAdded(){
   if (!state.picked.length) return "";
   const P = COOC.p, cand = MON.map((m, j) => j).filter(j => !state.picked.includes(j) && !ticketState(j));
-  const sc = cand.map(j => { const pct = d3.mean(state.picked, i => P[i][j]); return {j, pct, s: pct * Math.sqrt(pct / Math.max(1, COOC.pop[j]))}; }).sort((a, b) => b.s - a.s).slice(0, 3);
+  const net = useNet() ? netScores() : null;
+  const sc = cand.map(j => { const pct = d3.mean(state.picked, i => P[i][j]); return {j, pct, s: net ? net[j] : pct * Math.sqrt(pct / Math.max(1, COOC.pop[j]))}; }).sort((a, b) => b.s - a.s).slice(0, 3);
   if (!sc.length) return "";
   return `<div class="alsoadd"><div class="t">${ico("users")}Travellers like you also added</div>
     ${sc.map(x => `<div class="also"><span class="ico">${mico(MON[x.j])}</span><span>${esc(MON[x.j].n)}<small>${Math.round(x.pct)}% of trips with your sights · ${MON[x.j].f ? money(MON[x.j].f) : "free"}</small></span><button type="button" data-also="${x.j}" aria-label="Add ${esc(MON[x.j].n)}">+ Add</button></div>`).join("")}
-    <div class="hint">${COOC.real ? `From ${COOC.n.toLocaleString("en-US")} trips people planned here.` : `From ${COOC.n.toLocaleString("en-US")} sample trips in this preview. The app learns from real saved trips.`}</div></div>`;
+    <div class="hint">${net ? `Ranked by a neural network that reads your sights and the interests you ticked, trained on ${SUGGEST.n_trips.toLocaleString("en-US")} trips.` : COOC.real ? `From ${COOC.n.toLocaleString("en-US")} trips people planned here.` : `From ${COOC.n.toLocaleString("en-US")} sample trips in this preview. The app learns from real saved trips.`}</div></div>`;
 }
 // fill the trip with sights that match the chosen interests, within the ticket budget and the time available
 function surprise(){
